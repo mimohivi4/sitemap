@@ -15,14 +15,17 @@
     .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
     label { display:block; font-weight:600; margin-bottom:8px; }
     textarea, input[type="text"] { width:100%; border:1px solid var(--border); border-radius:8px; padding:10px; font: 14px/1.4 Consolas, monospace; }
-    textarea { min-height: 320px; resize: vertical; }
+    textarea { resize: vertical; }
+    #urls { min-height: 260px; }
+    #links { min-height: 140px; }
     .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
     button { border:0; border-radius:8px; padding:10px 14px; font-weight:600; cursor:pointer; }
     .primary { background:var(--accent); color:#fff; }
     .secondary { background:#e9eef6; color:#163a63; }
-    pre { margin:0; white-space:pre-wrap; word-break:break-word; max-height:340px; overflow:auto; background:#fafafa; border:1px solid var(--border); border-radius:8px; padding:10px; font:12px/1.4 Consolas, monospace; }
+    pre { margin:0; white-space:pre-wrap; word-break:break-word; max-height:300px; overflow:auto; background:#fafafa; border:1px solid var(--border); border-radius:8px; padding:10px; font:12px/1.4 Consolas, monospace; }
     .meta { color:var(--muted); font-size: 13px; margin-top: 8px; }
     .small { font-size: 13px; color: var(--muted); margin-top: 6px; }
+    .mt { margin-top: 14px; }
     @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -46,9 +49,13 @@
           <button class="primary" id="generate">Generate</button>
           <button class="secondary" id="download" disabled>Download site.html</button>
           <button class="secondary" id="copy" disabled>Copy HTML</button>
+          <button class="secondary" id="copyLinks" disabled>Copy links</button>
         </div>
         <div class="meta" id="status">0 URLs detected.</div>
         <div class="small" id="tplinfo"></div>
+
+        <label for="links" class="mt">Generated links (one per line)</label>
+        <textarea id="links" readonly placeholder="Wrapped links will appear here..."></textarea>
       </div>
 
       <div class="card">
@@ -64,11 +71,14 @@
     const titleEl = document.getElementById('title');
     const canonicalEl = document.getElementById('canonical');
     const outputEl = document.getElementById('output');
+    const linksEl = document.getElementById('links');
     const statusEl = document.getElementById('status');
     const tplInfoEl = document.getElementById('tplinfo');
     const downloadBtn = document.getElementById('download');
     const copyBtn = document.getElementById('copy');
+    const copyLinksBtn = document.getElementById('copyLinks');
     let lastHtml = '';
+    let lastLinks = '';
 
     function parseUrls(text) {
       return text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
@@ -92,9 +102,9 @@
         return segs.length ? segs[segs.length - 1] : '/';
       } catch {
         let m = url.match(/[?&](?:id|ID)=([^&#]+)/);
-        if (m) return decodeURIComponent(m[2]);
+        if (m) { try { return decodeURIComponent(m[1]); } catch { return m[1]; } }
         m = url.match(/[?&](?:[^=&]+=([^&#]+)|([^&#=&]+))[^?&]*$/);
-        if (m) return decodeURIComponent(m[1] || m[2] || '');
+        if (m) { const v = m[1] || m[2] || ''; try { return decodeURIComponent(v); } catch { return v; } }
         const seg = url.replace(/[?#].*$/, '').split('/').filter(Boolean).pop();
         return seg || url;
       }
@@ -176,9 +186,12 @@ ${items}
       const urls = parseUrls(urlsEl.value);
       if (!urls.length) {
         lastHtml = '';
+        lastLinks = '';
         outputEl.textContent = '';
+        linksEl.value = '';
         downloadBtn.disabled = true;
         copyBtn.disabled = true;
+        copyLinksBtn.disabled = true;
         statusEl.textContent = 'No URLs detected. Paste one URL per line.';
         return;
       }
@@ -186,11 +199,14 @@ ${items}
         statusEl.textContent = 'Error: templates.js not loaded.';
         return;
       }
+      lastLinks = urls.map((u, i) => hrefFor(TEMPLATES[i % TEMPLATES.length], u)).join('\n');
       lastHtml = buildHtml(urls, titleEl.value.trim(), canonicalEl.value.trim());
       outputEl.textContent = lastHtml;
+      linksEl.value = lastLinks;
       downloadBtn.disabled = false;
       copyBtn.disabled = false;
-      statusEl.textContent = `Generated site.html with ${urls.length} link${urls.length === 1 ? '' : 's'} (using ${TEMPLATES.length} templates in order, cycling if needed).`;
+      copyLinksBtn.disabled = false;
+      statusEl.textContent = `Generated ${urls.length} wrapped link${urls.length === 1 ? '' : 's'} (using ${TEMPLATES.length} templates in order, cycling if needed).`;
     }
 
     urlsEl.addEventListener('input', updateStatus);
@@ -213,6 +229,16 @@ ${items}
         statusEl.textContent = 'HTML copied to clipboard.';
       } catch {
         statusEl.textContent = 'Could not copy automatically; select and copy from the output box.';
+      }
+    });
+
+    copyLinksBtn.addEventListener('click', async () => {
+      if (!lastLinks) return;
+      try {
+        await navigator.clipboard.writeText(lastLinks);
+        statusEl.textContent = 'Links copied to clipboard.';
+      } catch {
+        statusEl.textContent = 'Could not copy automatically; select and copy from the links box.';
       }
     });
 
