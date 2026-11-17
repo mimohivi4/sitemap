@@ -1,0 +1,192 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Site Map Generator</title>
+  <style>
+    :root { --bg:#f6f7f9; --card:#fff; --text:#222; --muted:#666; --border:#d9dde3; --accent:#1a73e8; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: Arial, sans-serif; background:var(--bg); color:var(--text); line-height:1.5; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    h1 { margin: 0 0 8px; font-size: 1.8rem; font-weight: 600; }
+    p.lead { margin: 0 0 20px; color: var(--muted); }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+    label { display:block; font-weight:600; margin-bottom:8px; }
+    textarea, input[type="text"] { width:100%; border:1px solid var(--border); border-radius:8px; padding:10px; font: 14px/1.4 Consolas, monospace; }
+    textarea { min-height: 320px; resize: vertical; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+    button { border:0; border-radius:8px; padding:10px 14px; font-weight:600; cursor:pointer; }
+    .primary { background:var(--accent); color:#fff; }
+    .secondary { background:#e9eef6; color:#163a63; }
+    pre { margin:0; white-space:pre-wrap; word-break:break-word; max-height:320px; overflow:auto; background:#fafafa; border:1px solid var(--border); border-radius:8px; padding:10px; font:12px/1.4 Consolas, monospace; }
+    .meta { color:var(--muted); font-size: 13px; margin-top: 8px; }
+    .small { font-size: 13px; color: var(--muted); margin-top: 6px; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Site Map Generator</h1>
+    <p class="lead">Paste a list of URLs to generate a <code>site.html</code>-style page for GitHub Pages. Each URL becomes a list item.</p>
+
+    <div class="grid">
+      <div class="card">
+        <label for="urls">URLs (one per line)</label>
+        <textarea id="urls" placeholder="https://example.com/&#10;https://example.com/page-2"></textarea>
+        <label for="title" style="margin-top:12px">Page title</label>
+        <input id="title" type="text" value="Site Map – Resource Index">
+        <label for="canonical" style="margin-top:12px">Canonical URL (optional)</label>
+        <input id="canonical" type="text" placeholder="https://username.github.io/repo/site.html">
+        <div class="row">
+          <button class="primary" id="generate">Generate</button>
+          <button class="secondary" id="download" disabled>Download site.html</button>
+          <button class="secondary" id="copy" disabled>Copy HTML</button>
+        </div>
+        <div class="meta" id="status">0 URLs detected.</div>
+        <div class="small">Labels are derived from each URL path (e.g. <code>/job/123/</code>).</div>
+      </div>
+
+      <div class="card">
+        <label for="output">Generated HTML</label>
+        <pre id="output"></pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const urlsEl = document.getElementById('urls');
+    const titleEl = document.getElementById('title');
+    const canonicalEl = document.getElementById('canonical');
+    const outputEl = document.getElementById('output');
+    const statusEl = document.getElementById('status');
+    const downloadBtn = document.getElementById('download');
+    const copyBtn = document.getElementById('copy');
+    let lastHtml = '';
+
+    function parseUrls(text) {
+      return text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function labelFor(url) {
+      try {
+        const u = new URL(url);
+        let p = u.pathname || '/';
+        if (u.search) p += u.search;
+        return p === '' ? '/' : p;
+      } catch {
+        return url;
+      }
+    }
+
+    function today() {
+      const d = new Date();
+      return d.toISOString().slice(0, 10);
+    }
+
+    function refId() {
+      return Math.random().toString(16).slice(2, 10);
+    }
+
+    function buildHtml(urls, title, canonical) {
+      const items = urls.map(u => {
+        const href = escapeHtml(u);
+        const label = escapeHtml(labelFor(u));
+        return `                <li>\n                        <a href="${href}">\n                ${label}            </a>\n        </li>`;
+      }).join('\n');
+
+      const canonTag = canonical
+        ? `\n    <link rel="canonical" href="${escapeHtml(canonical)}">`
+        : '';
+
+      return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${escapeHtml(title || 'Site Map – Resource Index')}</title>
+    <meta name="description" content="Overview of available resources and reference pages for systematic review.">
+    <meta name="robots" content="index, follow">${canonTag}
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; background: #fafafa; color: #222; line-height: 1.6; }
+        h1 { font-size: 1.8em; font-weight: normal; border-bottom: 1px solid #ccc; padding-bottom: 0.3em; }
+        p { margin-bottom: 1em; }
+        ul { list-style: none; padding: 0; columns: 3; -webkit-columns: 3; -moz-columns: 3; }
+        li { margin-bottom: 0.4em; break-inside: avoid; }
+        a { color: #1a0dab; text-decoration: none; font-size: 0.95em; }
+        a:hover { text-decoration: underline; }
+        .footer { margin-top: 2em; font-size: 0.85em; color: #666; border-top: 1px solid #ddd; padding-top: 0.8em; }
+    </style>
+</head>
+<body>
+    <h1>Site Resource Map</h1>
+    <p>This page lists a selection of URLs for indexing and verification purposes. The collection is automatically compiled and updated to reflect the current structure of the site.</p>
+
+    <ul>
+${items}
+            </ul>
+
+    <p>All links lead to verified resources. This map is intended to assist automated crawlers in discovering content efficiently.</p>
+
+    <div class="footer">
+        <p>Map generated: ${today()} – Reference ID: ${refId()}</p>
+    </div>
+</body>
+</html>
+`;
+    }
+
+    function updateStatus() {
+      const n = parseUrls(urlsEl.value).length;
+      statusEl.textContent = `${n} URL${n === 1 ? '' : 's'} detected.`;
+    }
+
+    function generate() {
+      const urls = parseUrls(urlsEl.value);
+      if (!urls.length) {
+        lastHtml = '';
+        outputEl.textContent = '';
+        downloadBtn.disabled = true;
+        copyBtn.disabled = true;
+        statusEl.textContent = 'No URLs detected. Paste one URL per line.';
+        return;
+      }
+      lastHtml = buildHtml(urls, titleEl.value.trim(), canonicalEl.value.trim());
+      outputEl.textContent = lastHtml;
+      downloadBtn.disabled = false;
+      copyBtn.disabled = false;
+      statusEl.textContent = `Generated site.html with ${urls.length} URL${urls.length === 1 ? '' : 's'}.`;
+    }
+
+    urlsEl.addEventListener('input', updateStatus);
+    document.getElementById('generate').addEventListener('click', generate);
+
+    downloadBtn.addEventListener('click', () => {
+      if (!lastHtml) return;
+      const blob = new Blob([lastHtml], { type: 'text/html;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'site.html';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    copyBtn.addEventListener('click', async () => {
+      if (!lastHtml) return;
+      try {
+        await navigator.clipboard.writeText(lastHtml);
+        statusEl.textContent = 'HTML copied to clipboard.';
+      } catch {
+        statusEl.textContent = 'Could not copy automatically; select and copy from the output box.';
+      }
+    });
+
+    updateStatus();
+  </script>
+</body>
+</html>
