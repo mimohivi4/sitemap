@@ -29,12 +29,12 @@
 <body>
   <div class="wrap">
     <h1>Site Map Generator</h1>
-    <p class="lead">Paste target URLs to generate a <code>site.html</code>-style page. Each pasted URL is inserted into the next link template from the existing Site Resource Map (wrappers preserved in order).</p>
+    <p class="lead">Paste target URLs to generate a <code>site.html</code>-style page. Each pasted URL is inserted into the next link template from the existing Site Resource Map (wrappers preserved in order). Link text shows the last ID/value from each pasted URL.</p>
 
     <div class="grid">
       <div class="card">
         <label for="urls">Target URLs (one per line)</label>
-        <textarea id="urls" placeholder="https://postelniymir.ru/&#10;https://postelniymir.ru/job/123/?stm1"></textarea>
+        <textarea id="urls" placeholder="https://example.com/page?Type=File&amp;id=83723709"></textarea>
 
         <label for="title" style="margin-top:12px">Page title</label>
         <input id="title" type="text" value="Site Map – Resource Index">
@@ -81,11 +81,22 @@
     function labelFor(url) {
       try {
         const u = new URL(url);
-        let p = u.pathname || '/';
-        if (u.search) p += u.search;
-        return p === '' ? '/' : p;
+        const idParam = u.searchParams.get('id') || u.searchParams.get('ID');
+        if (idParam) return idParam;
+        const entries = [...u.searchParams.entries()];
+        if (entries.length) {
+          const [k, v] = entries[entries.length - 1];
+          return v || k;
+        }
+        const segs = u.pathname.split('/').filter(Boolean);
+        return segs.length ? segs[segs.length - 1] : '/';
       } catch {
-        return url;
+        let m = url.match(/[?&](?:id|ID)=([^&#]+)/);
+        if (m) return decodeURIComponent(m[2]);
+        m = url.match(/[?&](?:[^=&]+=([^&#]+)|([^&#=&]+))[^?&]*$/);
+        if (m) return decodeURIComponent(m[1] || m[2] || '');
+        const seg = url.replace(/[?#].*$/, '').split('/').filter(Boolean).pop();
+        return seg || url;
       }
     }
 
