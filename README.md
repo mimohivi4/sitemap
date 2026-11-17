@@ -1,16 +1,12 @@
-﻿# Site Map Generator (GitHub Pages)
+# Site Map Generator (GitHub Pages)
 
 Static web app for generating a `site.html`-style page from a pasted list of target URLs.
 
 ## How it works
-- Paste one target URL per line (e.g. `https://postelniymir.ru/...`).
-- Each pasted URL is inserted into the next link wrapper/template from the existing Site Resource Map, in order:
-  - link 1 -> `http://secondary.lccsmobile.com/action/clickthru?targetUrl=<url1>`
-  - link 2 -> `http://mailalpn.com/bitrix/redirect.php?goto=<url2>`
-  - link 3 -> `https://ak38.ru/bitrix/redirect.php?goto=<url3>`
-  - etc., preserving each wrapper's original form/encoding.
-- If you paste more URLs than templates, templates cycle from the start.
-- Link labels are derived from the pasted target URL path/query.
+- Paste one target URL per line.
+- Each pasted URL is inserted into the next link wrapper/template from the existing Site Resource Map, in order (wrappers and encodings preserved). Templates cycle if you paste more URLs than templates.
+- Link `href` = wrapper + pasted target URL.
+- Link text shows the last ID/value from the pasted URL (prefers `id` param; otherwise last query value/name or last path segment), e.g. `...&id=83723709` displays as `83723709`.
 
 ## Files
 - `index.html` — generator UI (open locally or via GitHub Pages).
